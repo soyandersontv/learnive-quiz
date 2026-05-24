@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 const PASSWORD = process.env.ADMIN_PASSWORD ?? "learnive2026";
+const TZ = "America/Bogota";
+
+const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat("es-CO", { timeZone: TZ, ...opts }).format(date);
 
 export default async function AdminPage({
   searchParams,
@@ -97,7 +101,7 @@ export default async function AdminPage({
                     {s.email ?? <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Sin email</span>}
                   </div>
                   <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
-                    {new Date(s.createdAt).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                    {fmt(new Date(s.createdAt), { dateStyle: "short", timeStyle: "short" })}
                     {" · "}{s.answers.length} respuestas
                     {s.utmSource && ` · ${s.utmSource}`}
                   </div>
@@ -124,8 +128,8 @@ export default async function AdminPage({
                 {[
                   { label: "Email", value: selectedSession.email ?? "—" },
                   { label: "Estado", value: selectedSession.status },
-                  { label: "Creado", value: new Date(selectedSession.createdAt).toLocaleString("es-CO") },
-                  { label: "Completado", value: selectedSession.completedAt ? new Date(selectedSession.completedAt).toLocaleString("es-CO") : "—" },
+                  { label: "Creado", value: fmt(new Date(selectedSession.createdAt), { dateStyle: "short", timeStyle: "medium" }) },
+                  { label: "Completado", value: selectedSession.completedAt ? fmt(new Date(selectedSession.completedAt), { dateStyle: "short", timeStyle: "medium" }) : "—" },
                   { label: "UTM Source", value: selectedSession.utmSource ?? "—" },
                   { label: "UTM Campaign", value: selectedSession.utmCampaign ?? "—" },
                 ].map(f => (
@@ -145,7 +149,7 @@ export default async function AdminPage({
               {selectedSession.answers.map((a, i) => (
                 <div key={a.id} style={{ background: "#fff", borderRadius: 12, padding: "12px 16px", border: "1px solid #E5E7EB" }}>
                   <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 4 }}>
-                    P{a.questionNumber} · {new Date(a.answeredAt).toLocaleTimeString("es-CO")}
+                    P{a.questionNumber} · {fmt(new Date(a.answeredAt), { timeStyle: "short" })}
                   </div>
                   {a.question && (
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>{a.question}</div>
