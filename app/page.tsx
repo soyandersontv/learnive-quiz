@@ -18,6 +18,16 @@ const trackPixel = (event: string) => {
   }
 };
 
+// Fire-and-forget DB helpers — never block the UI
+const db = {
+  post: (path: string, body: object) =>
+    fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .catch(console.error),
+  patch: (path: string, body: object) =>
+    fetch(path, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .catch(console.error),
+};
+
 function getProgress(step: QuizStep): number {
   if (step.type === "intro") return 0;
   if (step.type === "offer") return 100;
@@ -389,19 +399,15 @@ function OfferIntro({ answers, onSpin }: { answers: Answers; onSpin: () => void 
 }
 
 // ─── Spin Wheel ───────────────────────────────────────────────────────────────
-// Segments go clockwise from top. 50% is gold and narrowest (looks hardest to win).
-// Centers (cumulative °): 5%→35, 20%→105, 15%→175, 30%→245, 10%→302.5, 50%→342.5
 const WHEEL_SEGS = [
   { label: "5%",  deg: 70, color: "#E5E7EB", textColor: "#374151" },
   { label: "20%", deg: 70, color: "#DDD6FE", textColor: "#5B21B6" },
   { label: "15%", deg: 70, color: "#A78BFA", textColor: "#fff" },
   { label: "30%", deg: 70, color: "#7C3AED", textColor: "#fff" },
   { label: "10%", deg: 45, color: "#4C1D95", textColor: "#fff" },
-  { label: "50%", deg: 35, color: "#F59E0B", textColor: "#78350F" }, // GOLD — winner
+  { label: "50%", deg: 35, color: "#F59E0B", textColor: "#78350F" },
 ];
-// CSS rotate(deg) spins canvas clockwise → pointer (at top) sees canvas position (360-deg%360)%360.
-// 50% center is at 342.5° → deg%360 must equal 360-342.5=17.5° → TOTAL_DEG = 7×360+17.5 = 2537.5
-const WHEEL_TOTAL_DEG = 2538; // lands pointer at canvas 342° = inside 50% gold segment ✓
+const WHEEL_TOTAL_DEG = 2538;
 
 function drawWheel(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d");
@@ -412,13 +418,11 @@ function drawWheel(canvas: HTMLCanvasElement) {
 
   ctx.clearRect(0, 0, size, size);
 
-  // Outer ring
   ctx.beginPath();
   ctx.arc(cx, cy, r + 14, 0, 2 * Math.PI);
   ctx.fillStyle = "#1E1B4B";
   ctx.fill();
 
-  // Segments
   let cumDeg = 0;
   WHEEL_SEGS.forEach((seg) => {
     const startAngle = (cumDeg - 90) * (Math.PI / 180);
@@ -435,7 +439,6 @@ function drawWheel(canvas: HTMLCanvasElement) {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Text centered along segment midpoint at 68% radius
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(midAngle);
@@ -462,7 +465,6 @@ function drawWheel(canvas: HTMLCanvasElement) {
     cumDeg += seg.deg;
   });
 
-  // Center hub
   ctx.beginPath();
   ctx.arc(cx, cy, 18, 0, 2 * Math.PI);
   const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 18);
@@ -474,7 +476,6 @@ function drawWheel(canvas: HTMLCanvasElement) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // Decorative dots on outer ring
   for (let i = 0; i < 20; i++) {
     const angle = (i / 20) * 2 * Math.PI - Math.PI / 2;
     const bx = cx + (r + 8) * Math.cos(angle);
@@ -486,7 +487,7 @@ function drawWheel(canvas: HTMLCanvasElement) {
   }
 }
 
-function WheelScreen({ onWin }: { onWin: () => void }) {
+function WheelScreen({ sessionId, onWin }: { sessionId: string | null; onWin: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [won, setWon]       = useState(false);
   const [spinning, setSpinning] = useState(false);
@@ -500,6 +501,7 @@ function WheelScreen({ onWin }: { onWin: () => void }) {
   const spin = () => {
     if (spinning || won) return;
     setSpinning(true);
+    if (sessionId) db.post("/api/event", { sessionId, event: "WheelSpun" });
 
     const TOTAL_DEG = WHEEL_TOTAL_DEG;
     const DURATION  = 5500;
@@ -522,6 +524,7 @@ function WheelScreen({ onWin }: { onWin: () => void }) {
         rafRef.current = requestAnimationFrame(frame);
       } else {
         if (canvasRef.current) canvasRef.current.style.willChange = "auto";
+        if (sessionId) db.post("/api/event", { sessionId, event: "WheelWon", metadata: { discount: "50%" } });
         setTimeout(() => {
           setSpinning(false);
           setWon(true);
@@ -542,10 +545,8 @@ function WheelScreen({ onWin }: { onWin: () => void }) {
         </p>
       </div>
 
-      {/* Wheel container + pointer — responsive: fits any phone width */}
       <div className="relative flex items-center justify-center"
         style={{ width: "min(300px, calc(100vw - 56px))", height: "min(300px, calc(100vw - 56px))" }}>
-        {/* Fixed pointer at top */}
         <div className="absolute z-20" style={{ top: -2, left: "50%", transform: "translateX(-50%)" }}>
           <div style={{
             width: 0, height: 0,
@@ -556,7 +557,6 @@ function WheelScreen({ onWin }: { onWin: () => void }) {
           }} />
         </div>
 
-        {/* Canvas scales with container via CSS */}
         <canvas
           ref={canvasRef}
           width={290}
@@ -582,7 +582,6 @@ function WheelScreen({ onWin }: { onWin: () => void }) {
         </button>
       )}
 
-      {/* Winner modal */}
       {won && (
         <div className="fixed inset-0 flex items-end justify-center z-50"
           style={{ background: "rgba(0,0,0,0.55)" }}>
@@ -632,7 +631,7 @@ const PLANS = [
   },
 ];
 
-function PricingScreen() {
+function PricingScreen({ sessionId }: { sessionId: string | null }) {
   const [selected, setSelected] = useState("4-weeks");
   const [timeLeft, setTimeLeft] = useState({ m: 5, s: 44 });
   const [showFaq, setShowFaq] = useState<number | null>(null);
@@ -650,8 +649,18 @@ function PricingScreen() {
   }, []);
 
   const fmt = (n: number) => n.toString().padStart(2, "0");
-
   const selectedPlan = PLANS.find(p => p.id === selected)!;
+
+  const handlePlanClick = (planId: string) => {
+    if (sessionId) {
+      const plan = PLANS.find(p => p.id === planId);
+      db.post("/api/event", {
+        sessionId,
+        event: "PlanSelected",
+        metadata: { planId, price: plan?.discountedPrice },
+      });
+    }
+  };
 
   const faqs = [
     { q: "Do I really need 28 days?", a: "Yes. The brain needs 21+ days to build new habits. Learnive's method is designed with learning neuroscience for lasting results." },
@@ -679,6 +688,7 @@ function PricingScreen() {
           </div>
         </div>
         <a href={selectedPlan.link} target="_blank" rel="noopener noreferrer"
+          onClick={() => handlePlanClick(selected)}
           className="btn-primary py-2.5 px-4 text-sm flex-shrink-0" style={{ width: "auto", textDecoration: "none", fontSize: 13, fontWeight: 800 }}>
           GET MY PLAN
         </a>
@@ -753,7 +763,7 @@ function PricingScreen() {
 
       {/* Main CTA */}
       <div className="px-4 mb-6">
-        <a href={selectedPlan.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+        <a href={selectedPlan.link} target="_blank" rel="noopener noreferrer" onClick={() => handlePlanClick(selected)} style={{ textDecoration: "none" }}>
           <button className="btn-primary text-lg py-5">GET MY PLAN →</button>
         </a>
         <p className="text-center text-xs mt-3" style={{ color: "#9CA3AF" }}>
@@ -807,7 +817,7 @@ function PricingScreen() {
 
       {/* Final CTA */}
       <div className="px-4 pb-safe">
-        <a href={selectedPlan.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+        <a href={selectedPlan.link} target="_blank" rel="noopener noreferrer" onClick={() => handlePlanClick(selected)} style={{ textDecoration: "none" }}>
           <button className="btn-primary text-lg py-5">YES, I WANT TO START NOW →</button>
         </a>
         <p className="text-center text-xs mt-2" style={{ color: "#9CA3AF" }}>
@@ -821,12 +831,12 @@ function PricingScreen() {
 // ─── Offer controller (sub-steps) ─────────────────────────────────────────────
 type OfferSubStep = "intro" | "wheel" | "pricing";
 
-function OfferScreen({ answers }: { answers: Answers }) {
+function OfferScreen({ answers, sessionId }: { answers: Answers; sessionId: string | null }) {
   const [subStep, setSubStep] = useState<OfferSubStep>("intro");
 
   if (subStep === "intro") return <OfferIntro answers={answers} onSpin={() => setSubStep("wheel")} />;
-  if (subStep === "wheel") return <WheelScreen onWin={() => setSubStep("pricing")} />;
-  return <PricingScreen />;
+  if (subStep === "wheel") return <WheelScreen sessionId={sessionId} onWin={() => setSubStep("pricing")} />;
+  return <PricingScreen sessionId={sessionId} />;
 }
 
 // ─── Main Quiz Controller ─────────────────────────────────────────────────────
@@ -835,8 +845,24 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<Answers>({});
   const [selected, setSelected] = useState<string[]>([]);
   const [key, setKey] = useState(0);
+  const sessionIdRef = useRef<string | null>(null);
 
   const currentStep = QUIZ_STEPS[stepIndex];
+
+  // Create a DB session as soon as the page loads
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    db.post("/api/session", {
+      utmSource: params.get("utm_source"),
+      utmMedium: params.get("utm_medium"),
+      utmCampaign: params.get("utm_campaign"),
+    }).then(async res => {
+      if (res?.ok) {
+        const data = await (res as Response).json();
+        sessionIdRef.current = data.sessionId;
+      }
+    }).catch(console.error);
+  }, []);
 
   const goNext = useCallback(() => {
     setStepIndex(i => Math.min(i + 1, QUIZ_STEPS.length - 1));
@@ -848,6 +874,10 @@ export default function QuizPage() {
   const handleIntroAnswer = (id: string) => {
     setAnswers(a => ({ ...a, 0: [id] }));
     trackPixel("FirstInteraction");
+    if (sessionIdRef.current) {
+      db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber: 0, questionType: "intro", answerIds: [id] });
+      db.post("/api/event", { sessionId: sessionIdRef.current, event: "FirstInteraction" });
+    }
     goNext();
   };
 
@@ -856,9 +886,12 @@ export default function QuizPage() {
       setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
     } else {
       setAnswers(a => ({ ...a, [questionNumber]: [id] }));
-      if (questionNumber === 5)  trackPixel("5Interaction");
-      if (questionNumber === 10) trackPixel("10Interaction");
-      if (questionNumber === 20) trackPixel("CalendarSubmit");
+      if (sessionIdRef.current) {
+        db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber, questionType: "question", answerIds: [id] });
+      }
+      if (questionNumber === 5)  { trackPixel("5Interaction");  if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "5Interaction" }); }
+      if (questionNumber === 10) { trackPixel("10Interaction"); if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "10Interaction" }); }
+      if (questionNumber === 20) { trackPixel("CalendarSubmit"); if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "CalendarSubmit" }); }
       setTimeout(goNext, 280);
     }
   }, [goNext]);
@@ -866,10 +899,22 @@ export default function QuizPage() {
   const handleQuestionNext = useCallback((questionNumber: number) => {
     if (selected.length > 0) {
       setAnswers(a => ({ ...a, [questionNumber]: selected }));
-      if (questionNumber === 15) trackPixel("15Interaction");
+      if (sessionIdRef.current) {
+        db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber, questionType: "question", answerIds: selected });
+      }
+      if (questionNumber === 15) { trackPixel("15Interaction"); if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "15Interaction" }); }
       goNext();
     }
   }, [selected, goNext]);
+
+  const handleEmailSubmit = (email: string) => {
+    setAnswers(a => ({ ...a, email: [email] }));
+    if (sessionIdRef.current) {
+      db.patch("/api/session", { sessionId: sessionIdRef.current, email, status: "completed" });
+      db.post("/api/event", { sessionId: sessionIdRef.current, event: "EmailCaptured", metadata: { email } });
+    }
+    goNext();
+  };
 
   const showHeader = currentStep.type !== "offer";
 
@@ -902,8 +947,8 @@ export default function QuizPage() {
           />
         )}
         {currentStep.type === "loading" && <LoadingScreen onDone={goNext} />}
-        {currentStep.type === "email" && <EmailScreen onSubmit={email => { setAnswers(a => ({ ...a, email: [email] })); goNext(); }} />}
-        {currentStep.type === "offer" && <OfferScreen answers={answers} />}
+        {currentStep.type === "email" && <EmailScreen onSubmit={handleEmailSubmit} />}
+        {currentStep.type === "offer" && <OfferScreen answers={answers} sessionId={sessionIdRef.current} />}
       </main>
     </div>
   );
