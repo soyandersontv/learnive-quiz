@@ -7,7 +7,16 @@ import type { QuizStep } from "@/lib/quiz-data";
 type Answers = Record<number | string, string[]>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const trackPixel = (event: string) => { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("trackCustom", event); };
+const trackPixel = (event: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fbq = typeof window !== "undefined" ? (window as any).fbq : null;
+  if (fbq) {
+    fbq("trackCustom", event);
+    console.log("[Pixel] tracked:", event);
+  } else {
+    console.warn("[Pixel] fbq not ready when trying to track:", event);
+  }
+};
 
 function getProgress(step: QuizStep): number {
   if (step.type === "intro") return 0;
