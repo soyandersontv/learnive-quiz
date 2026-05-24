@@ -1,26 +1,183 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary: #7C3AED;
+  --primary-dark: #5B21B6;
+  --primary-light: #EDE9FE;
+  --accent: #F59E0B;
+  --bg: #FAFAFA;
+  --text: #111827;
+  --muted: #6B7280;
+  --border: #E5E7EB;
+  --card: #FFFFFF;
+  --success: #10B981;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ─── Base mobile reset ───────────────────────────────────────────────────── */
+html {
+  overflow-x: hidden;
+  /* iOS safe area */
+  padding-top: env(safe-area-inset-top);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;   /* prevent iOS font inflation */
+  text-size-adjust: 100%;
+}
+
+/* Eliminate 300ms tap delay on all interactive elements */
+a, button, input, select, textarea, label {
+  touch-action: manipulation;
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.step-enter {
+  animation: fadeSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Option cards ───────────────────────────────────────────────────────── */
+.option-card {
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  border: 2px solid var(--border);
+  background: var(--card);
+  border-radius: 16px;
+  padding: 14px 18px;
+  min-height: 56px;           /* ensures 44px+ touch target */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  position: relative;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Active (touch press) state — works on mobile, hover doesn't */
+.option-card:active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  transform: scale(0.985);
+}
+
+/* Hover only on devices that support it (desktop) */
+@media (hover: hover) {
+  .option-card:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+  }
+}
+
+.option-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.2);
+}
+
+/* ─── Primary button ─────────────────────────────────────────────────────── */
+.btn-primary {
+  background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 18px 32px;
+  font-size: 16px;
+  font-weight: 700;
+  width: 100%;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.35);
+  -webkit-user-select: none;
+  user-select: none;
+  display: block;
+  text-align: center;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+}
+
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(124, 58, 237, 0.45);
+  }
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ─── Outline button ─────────────────────────────────────────────────────── */
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  padding: 16px 32px;
+  font-size: 15px;
+  font-weight: 600;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-outline:active {
+  background: var(--primary-light);
+}
+
+@media (hover: hover) {
+  .btn-outline:hover {
+    background: var(--primary-light);
+  }
+}
+
+/* ─── Safe-area bottom padding ───────────────────────────────────────────── */
+.pb-safe {
+  padding-bottom: max(2.5rem, env(safe-area-inset-bottom));
+}
+
+/* ─── Loading animations ─────────────────────────────────────────────────── */
+@keyframes dot-pulse {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+  40%            { transform: scale(1.2); opacity: 1; }
+}
+.dot-1 { animation: dot-pulse 1.2s ease infinite; }
+.dot-2 { animation: dot-pulse 1.2s ease 0.25s infinite; }
+.dot-3 { animation: dot-pulse 1.2s ease 0.5s infinite; }
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 1; }
+  70%  { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulse-ring 2s ease infinite;
+}
+
+/* ─── Scrollbar (desktop only) ───────────────────────────────────────────── */
+@media (hover: hover) {
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
 }
