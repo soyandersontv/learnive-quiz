@@ -1,9 +1,18 @@
 import { prisma } from "@/lib/prisma";
+import { QUIZ_STEPS } from "@/lib/quiz-data";
 
 export const dynamic = "force-dynamic";
 
 const PASSWORD = process.env.ADMIN_PASSWORD ?? "learnive2026";
 const TZ = "America/Bogota";
+
+// Lookup map: questionNumber → question text (from the fixed quiz data)
+const QUESTION_TEXT: Record<number, string> = Object.fromEntries(
+  QUIZ_STEPS
+    .filter((s): s is Extract<typeof s, { type: "question" }> => s.type === "question")
+    .map(s => [s.number, s.question])
+);
+QUESTION_TEXT[0] = "How prepared are you for the AI era?";
 
 const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("es-CO", { timeZone: TZ, ...opts }).format(date);
@@ -151,9 +160,9 @@ export default async function AdminPage({
                   <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 4 }}>
                     P{a.questionNumber} · {fmt(new Date(a.answeredAt), { timeStyle: "short" })}
                   </div>
-                  {a.question && (
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>{a.question}</div>
-                  )}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                    {a.question ?? QUESTION_TEXT[a.questionNumber] ?? `Pregunta ${a.questionNumber}`}
+                  </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {a.answerIds.map(id => (
                       <span key={id} style={{ background: "#EDE9FE", color: "#5B21B6", borderRadius: 8, padding: "3px 10px", fontSize: 13, fontWeight: 600 }}>
