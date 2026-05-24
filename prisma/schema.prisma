@@ -30,6 +30,7 @@ model QuizAnswer {
   sessionId      String
   questionNumber Int
   questionType   String   // "question" | "intro"
+  question       String?  // full question text
   answerIds      String[] // one or more selected option ids
   answeredAt     DateTime @default(now())
 

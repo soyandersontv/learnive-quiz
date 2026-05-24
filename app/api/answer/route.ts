@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 // POST /api/answer — save one quiz answer
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId, questionNumber, questionType, answerIds } = await req.json();
+    const { sessionId, questionNumber, questionType, question, answerIds } = await req.json();
 
     if (!sessionId || questionNumber == null || !answerIds?.length) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
         sessionId,
         questionNumber,
         questionType: questionType ?? "question",
+        question: question ?? null,
         answerIds,
       },
     });

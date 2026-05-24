@@ -875,19 +875,19 @@ export default function QuizPage() {
     setAnswers(a => ({ ...a, 0: [id] }));
     trackPixel("FirstInteraction");
     if (sessionIdRef.current) {
-      db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber: 0, questionType: "intro", answerIds: [id] });
+      db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber: 0, questionType: "intro", question: "How prepared are you for the AI era?", answerIds: [id] });
       db.post("/api/event", { sessionId: sessionIdRef.current, event: "FirstInteraction" });
     }
     goNext();
   };
 
-  const handleSelect = useCallback((questionNumber: number, id: string, multiple: boolean) => {
+  const handleSelect = useCallback((questionNumber: number, id: string, multiple: boolean, questionText?: string) => {
     if (multiple) {
       setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
     } else {
       setAnswers(a => ({ ...a, [questionNumber]: [id] }));
       if (sessionIdRef.current) {
-        db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber, questionType: "question", answerIds: [id] });
+        db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber, questionType: "question", question: questionText, answerIds: [id] });
       }
       if (questionNumber === 5)  { trackPixel("5Interaction");  if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "5Interaction" }); }
       if (questionNumber === 10) { trackPixel("10Interaction"); if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "10Interaction" }); }
@@ -896,11 +896,11 @@ export default function QuizPage() {
     }
   }, [goNext]);
 
-  const handleQuestionNext = useCallback((questionNumber: number) => {
+  const handleQuestionNext = useCallback((questionNumber: number, questionText?: string) => {
     if (selected.length > 0) {
       setAnswers(a => ({ ...a, [questionNumber]: selected }));
       if (sessionIdRef.current) {
-        db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber, questionType: "question", answerIds: selected });
+        db.post("/api/answer", { sessionId: sessionIdRef.current, questionNumber, questionType: "question", question: questionText, answerIds: selected });
       }
       if (questionNumber === 15) { trackPixel("15Interaction"); if (sessionIdRef.current) db.post("/api/event", { sessionId: sessionIdRef.current, event: "15Interaction" }); }
       goNext();
@@ -942,8 +942,8 @@ export default function QuizPage() {
           <QuestionScreen
             step={currentStep}
             selected={selected}
-            onSelect={id => handleSelect(currentStep.number, id, currentStep.multiple ?? false)}
-            onNext={() => handleQuestionNext(currentStep.number)}
+            onSelect={id => handleSelect(currentStep.number, id, currentStep.multiple ?? false, currentStep.question)}
+            onNext={() => handleQuestionNext(currentStep.number, currentStep.question)}
           />
         )}
         {currentStep.type === "loading" && <LoadingScreen onDone={goNext} />}
